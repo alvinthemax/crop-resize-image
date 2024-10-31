@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Cropper with Square Background</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 20px; }
+        #output { margin-top: 10px; }
+        .crop-container {
+            position: relative; 
+            width: 100%; 
+            max-width: 500px; 
+            margin: auto; 
+            height: 500px; /* Fixed height for square background */
+            overflow: hidden; /* Prevent overflow of image */
+            background-color: rgba(255, 255, 255, 0); /* Transparent background */
+            border: 2px dashed rgba(255, 255, 255, 0.5); /* Optional border for visibility */
+        }
+        #image {
+            max-width: none; /* Allow the image to be larger than the container */
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            z-index: 2; /* Ensure the image is above the background */
+        }
+        .input-group { margin: 10px; }
+        .hidden { display: none; }
+        .inline { display: inline-block; margin-left: 10px; }
+        .button-group { margin-top: 10px; }
+        #croppedOutput {
+            max-width: 100%; /* Prevent overflow in viewport */
+            max-height: calc(100vh - 100px); /* Adjust height to avoid exceeding viewport */
+            display: none; /* Hide until an image is cropped */
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Upload and Crop Image</h2>
+    <input type="file" id="upload" accept="image/*"><br><br>
+
+    <h3>Adjust Dimension</h3>
+    <p>Change size area by:
+        <span class="inline">
+            <select id="sizeOption" onchange="handleSizeOptionChange()">
+                <option value="database">Choose from database</option>
+                <option value="typing">Typing</option>
+                <option value="manual" selected>Manual</option>
+            </select>
+        </span>
+    </p>
+
+    <div id="buttonGroup" class="hidden button-group">
+        <button>1</button>
+        <button>2</button>
+        <button>3</button>
+        <button>4</button>
+        <button>5</button>
+    </div>
+
+    <div id="dimensionsInput" class="hidden">
+        <label>Width:</label>
+        <input type="number" id="cropWidth" placeholder="Enter width"><br>
+        <label>Height:</label>
+        <input type="number" id="cropHeight" placeholder="Enter height"><br>
+        <button id="saveDimensionsButton" class="hidden" onclick="saveDimensions()">Simpan Dimensi</button>
+    </div>
+
+    <button onclick="runCrop()">Run</button>
+
+    <!-- Image Container for Cropping -->
+    <div class="crop-container">
+        <img id="image" style="display: none;">
+    </div>
+
+    <div id="output"></div>
+    
+    <div id="downloadOptions" class="hidden" style="margin-top: 10px;">
+        <span>Download as:</span>
+        <select id="downloadFormat" onchange="downloadImage()">
+            <option value="">Select format</option>
+            <option value="jpeg">JPEG</option>
+            <option value="png">PNG</option>
+            <option value="jpg">JPG</option>
+        </select>
+    </div>
+
+    <!-- Display cropped image -->
+    <div>
+        <h3>Cropped Image:</h3>
+        <img id="croppedOutput" />
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <script>
+        let cropper;
+        const imageElement = document.getElementById('image');
+        const croppedOutput = document.getElementById('croppedOutput');
+
+        document.getElementById('upload').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imageElement.src = event.target.result;
+                imageElement.style.display = 'block';
+
+                if (cropper) {
+                    cropper.destroy();  // Remove the previous cropper if exists
+                }
+
+                cropper = new Cropper(imageElement, {
+                    aspectRatio: NaN,  // No aspect ratio restriction initially
+                    viewMode: 1,
+                    ready() {
+                        // Initial setup can be done here
+                    }
+                });
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        });
+
+        function applyInputConstraints() {
+            const cropWidth = parseInt(document.getElementById('cropWidth').value);
+            const cropHeight = parseInt(document.getElementById('cropHeight').value);
+
+            if (cropWidth && cropHeight) {
+                // Set aspect ratio based on user input
+                cropper.setAspectRatio(cropWidth / cropHeight);
+                cropper.setCropBoxData({
+                    width: cropWidth,
+                    height: cropHeight
+                });
+            } else {
+                // Allow free cropping if no dimensions are specified
+                cropper.setAspectRatio(NaN);
+            }
+        }
+
+        function saveDimensions() {
+            // Apply crop dimensions only if Typing is selected
+            if (document.getElementById('sizeOption').value === 'typing') {
+                applyInputConstraints();
+            }
+        }
+
+        function runCrop() {
+            const croppedCanvas = cropper.getCroppedCanvas();
+            const outputDiv = document.getElementById('output');
+            outputDiv.innerHTML = '';  // Clear previous results
+            croppedOutput.src = croppedCanvas.toDataURL(); // Set cropped image source
+            croppedOutput.style.display = 'block'; // Show cropped image
+
+            // Show download options after cropping
+            document.getElementById('downloadOptions').classList.remove('hidden');
+        }
+
+        function downloadImage() {
+            const format = document.getElementById('downloadFormat').value;
+            const croppedCanvas = cropper.getCroppedCanvas();
+
+            if (format) {
+                // Create a link element to trigger the download
+                const link = document.createElement('a');
+                link.href = croppedCanvas.toDataURL(`image/${format}`);
+                link.download = `cropped_image.${format}`;  // Set the file name
+                link.click();  // Trigger the download
+            }
+        }
+
+        function handleSizeOptionChange() {
+            const sizeOption = document.getElementById('sizeOption').value;
+            document.getElementById('buttonGroup').classList.add('hidden');
+            document.getElementById('dimensionsInput').classList.add('hidden');
+            document.getElementById('saveDimensionsButton').classList.add('hidden'); // Hide save dimensions button
+
+            // Reset crop area only if "Manual" is selected
+            if (sizeOption === 'manual') {
+                cropper.setCropBoxData({ width: 0, height: 0 });  // Reset crop box size
+                cropper.setAspectRatio(NaN);  // Allow free cropping
+            }
+
+            if (sizeOption === 'database') {
+                document.getElementById('buttonGroup').classList.remove('hidden');
+            } else if (sizeOption === 'typing') {
+                document.getElementById('dimensionsInput').classList.remove('hidden');
+                document.getElementById('saveDimensionsButton').classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>
